@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && getUserData(request.auth.uid).role == 'admin';
+    }
+    
+    function isJury() {
+      return isSignedIn() && getUserData(request.auth.uid).role == 'jury';
+    }
+
+    // --- User Rules ---
+    match /users/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin() || isJury());
+      allow list: if isAdmin() || isJury();
+      
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'email', 'role', 'status'])
+          && data.uid is string && data.uid == userId
+          && data.email is string
+          && data.role in ['admin', 'jury', 'participant']
+          && data.status in ['pending', 'active', 'locked'];
+      }
+
+      allow create: if isSignedIn() && (
+        (isOwner(userId) && incoming().role == 'participant' && incoming().status == 'pending')
+        || isAdmin()
+      ) && isValidUser(incoming());
+      
+      allow update: if (isAdmin() || (isOwner(userId) && incoming().role == existing().role))
+        && isValidUser(incoming());
+    }
+
+    // --- Registration Rules ---
+    match /registrations/{regId} {
+      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin() || isJury());
+      allow list: if isSignedIn(); // Filtered by userId on client or isAdmin/isJury
+      
+      function isValidRegistration(data) {
+        return data.keys().hasAll(['userId', 'competitionType', 'status'])
+          && data.userId is string
+          && data.competitionType in ['battle', 'seminar']
+          && data.status in ['pending', 'confirmed', 'deactivated'];
+      }
+
+      allow create: if isSignedIn() && (isOwner(incoming().userId) || isAdmin())
+        && isValidRegistration(incoming());
+        
+      allow update: if (isAdmin() || isJury()) && isValidRegistration(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // --- Score Rules ---
+    match /scores/{scoreId} {
+      allow get: if isSignedIn() && (isOwner(existing().participantId) || isAdmin() || isJury());
+      allow list: if isSignedIn(); // Filtered by participantId
+      
+      function isValidScore(data) {
+        return data.keys().hasAll(['participantId', 'juryId', 'scoreValues', 'totalScore'])
+          && data.participantId is string
+          && data.juryId is string
+          && data.scoreValues is map
+          && data.totalScore is number && data.totalScore >= 0 && data.totalScore <= 100;
+      }
+
+      allow create: if (isJury() || isAdmin()) && isValidScore(incoming());
+      allow update: if (isJury() || isAdmin()) && isValidScore(incoming());
+      allow delete: if isAdmin() || isJury(); // Deletion when deactivating participant
+    }
+
+    // --- Event Rules ---
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

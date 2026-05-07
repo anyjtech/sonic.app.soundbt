@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents an account in the system (Admin, Jury, or Participant).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "jury", "participant"] },
+        "status": { "type": "string", "enum": ["pending", "active", "locked"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "status"]
+    },
+    "Registration": {
+      "title": "Registration",
+      "description": "Represents a participant's entry into a specific competition event.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "competitionType": { "type": "string", "enum": ["battle", "seminar"] },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "deactivated"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "competitionType", "status"]
+    },
+    "Score": {
+      "title": "Score",
+      "description": "Scoring record for a participant by a jury member.",
+      "type": "object",
+      "properties": {
+        "participantId": { "type": "string" },
+        "juryId": { "type": "string" },
+        "scoreValues": { "type": "object" },
+        "totalScore": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participantId", "juryId", "scoreValues", "totalScore"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Global event state, including winners.",
+      "type": "object",
+      "properties": {
+        "competitionType": { "type": "string" },
+        "winnerId": { "type": "string" },
+        "announced": { "type": "boolean" }
+      },
+      "required": ["competitionType"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data."
+    },
+    "/registrations/{registrationId}": {
+      "schema": "Registration",
+      "description": "Registration entries."
+    },
+    "/scores/{scoreId}": {
+      "schema": "Score",
+      "description": "Participant score records."
+    },
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Global event status."
+    }
+  }
+}

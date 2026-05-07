@@ -1,0 +1,6 @@
+{
+  "name": "Sonic Battle Arena",
+  "description": "Premium competition registration and scoring platform for Sound System Battle and Sound Miniature Seminar events. Features role-based access for Admins, Juries, and Participants with real-time scoring and automated certification.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
